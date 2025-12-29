@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue"
 import { RouterLink, useRoute, useRouter } from "vue-router"
+import { Loader2Icon, LogInIcon } from "lucide-vue-next"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -107,7 +108,9 @@ const onSubmit = async () => {
             </div>
 
             <Button class="w-full" type="submit" :disabled="authStore.loading">
-              {{ authStore.loading ? "Entrando..." : "Entrar" }}
+              <Loader2Icon v-if="authStore.loading" class="size-4 animate-spin" />
+              <LogInIcon v-else class="size-4" />
+              <span>{{ authStore.loading ? "Entrando..." : "Entrar" }}</span>
             </Button>
           </form>
         </CardContent>

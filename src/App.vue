@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import { useRoute } from "vue-router"
+import { Toaster } from "@/components/ui/sonner"
 import { useAuthStore } from "@/stores/auth"
 import { useContaStore } from "@/stores/conta"
 
@@ -21,4 +22,5 @@ const mostrarLoading = computed(() => {
     </div>
   </main>
   <RouterView v-else />
+  <Toaster />
 </template>

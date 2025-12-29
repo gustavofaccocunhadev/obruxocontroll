@@ -1,0 +1,3 @@
+-- Stub migration (no-op).
+-- Esta versão existe no histórico do remoto, mas o arquivo não estava presente localmente.
+-- Mantido intencionalmente sem mudanças.

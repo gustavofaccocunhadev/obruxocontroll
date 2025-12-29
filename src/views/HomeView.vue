@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RouterLink } from "vue-router"
+import { LogInIcon, LogOutIcon, SparklesIcon, UserPlusIcon } from "lucide-vue-next"
 import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/stores/auth"
 
@@ -18,15 +19,22 @@ const onSignOut = async () => {
         <div class="flex items-center gap-2">
           <template v-if="authStore.user">
             <Button variant="outline" size="sm" @click="onSignOut">
-              Sair
+              <LogOutIcon class="size-4" />
+              <span>Sair</span>
             </Button>
           </template>
           <template v-else>
             <Button variant="ghost" as-child>
-              <RouterLink to="/login">Entrar</RouterLink>
+              <RouterLink to="/login">
+                <LogInIcon class="size-4" />
+                <span>Entrar</span>
+              </RouterLink>
             </Button>
             <Button as-child>
-              <RouterLink to="/cadastro">Criar conta</RouterLink>
+              <RouterLink to="/cadastro">
+                <UserPlusIcon class="size-4" />
+                <span>Criar conta</span>
+              </RouterLink>
             </Button>
           </template>
         </div>
@@ -46,10 +54,16 @@ const onSignOut = async () => {
           </p>
           <div class="flex flex-col gap-3 sm:flex-row">
             <Button size="lg" as-child>
-              <RouterLink to="/cadastro">Comecar agora</RouterLink>
+              <RouterLink to="/cadastro">
+                <SparklesIcon class="size-4" />
+                <span>Comecar agora</span>
+              </RouterLink>
             </Button>
             <Button variant="outline" size="lg" as-child>
-              <RouterLink to="/login">Ja tenho conta</RouterLink>
+              <RouterLink to="/login">
+                <LogInIcon class="size-4" />
+                <span>Ja tenho conta</span>
+              </RouterLink>
             </Button>
           </div>
         </div>

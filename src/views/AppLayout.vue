@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from "vue"
 import { useRoute, RouterLink, RouterView } from "vue-router"
+import {
+  CreditCardIcon,
+  LayoutDashboardIcon,
+  LogOutIcon,
+  MenuIcon,
+  PaletteIcon,
+  UsersIcon,
+  XIcon,
+} from "lucide-vue-next"
 import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/stores/auth"
 import { useContaStore } from "@/stores/conta"
@@ -13,10 +22,10 @@ const menuAberto = ref(false)
 const contaNome = computed(() => contaStore.contaAtual?.nome ?? "Conta")
 
 const itens = [
-  { label: "Dashboard", to: "/app" },
-  { label: "Clientes", to: "/app/clientes" },
-  { label: "Artes", to: "/app/artes" },
-  { label: "Financeiro", to: "/app/financeiro" },
+  { label: "Dashboard", to: "/app", icon: LayoutDashboardIcon },
+  { label: "Clientes", to: "/app/clientes", icon: UsersIcon },
+  { label: "Artes", to: "/app/artes", icon: PaletteIcon },
+  { label: "Financeiro", to: "/app/financeiro", icon: CreditCardIcon },
 ]
 
 const isAtivo = (path: string) => route.path === path
@@ -36,11 +45,12 @@ const sair = async () => {
         <div class="flex items-center justify-between border-b px-4 py-4 md:justify-center">
           <span class="text-sm font-semibold tracking-wide">BruxoControl</span>
           <Button
-            class="md:hidden"
+            class="gap-2 md:hidden"
             size="sm"
             variant="ghost"
             @click="menuAberto = false"
           >
+            <XIcon class="size-4" />
             Fechar
           </Button>
         </div>
@@ -49,7 +59,7 @@ const sair = async () => {
             v-for="item in itens"
             :key="item.to"
             :to="item.to"
-            class="block rounded-md px-3 py-2 text-sm transition"
+            class="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition"
             :class="[
               isAtivo(item.to)
                 ? 'bg-primary/10 text-primary'
@@ -57,7 +67,8 @@ const sair = async () => {
             ]"
             @click="menuAberto = false"
           >
-            {{ item.label }}
+            <component :is="item.icon" class="size-4" />
+            <span>{{ item.label }}</span>
           </RouterLink>
         </nav>
       </aside>
@@ -73,11 +84,12 @@ const sair = async () => {
           <div class="flex items-center justify-between gap-4">
             <div class="flex items-center gap-3">
               <Button
-                class="md:hidden"
+                class="gap-2 md:hidden"
                 size="sm"
                 variant="ghost"
                 @click="menuAberto = true"
               >
+                <MenuIcon class="size-4" />
                 Menu
               </Button>
               <div>
@@ -85,7 +97,10 @@ const sair = async () => {
                 <p class="text-sm font-semibold">{{ contaNome }}</p>
               </div>
             </div>
-            <Button size="sm" variant="outline" @click="sair">Sair</Button>
+            <Button size="sm" variant="outline" class="gap-2" @click="sair">
+              <LogOutIcon class="size-4" />
+              <span>Sair</span>
+            </Button>
           </div>
         </header>
 
