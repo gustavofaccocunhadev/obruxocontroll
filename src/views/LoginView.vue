@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue"
 import { RouterLink, useRoute, useRouter } from "vue-router"
-import { Loader2Icon, LogInIcon } from "lucide-vue-next"
+import { EyeIcon, EyeOffIcon, Loader2Icon, LogInIcon } from "lucide-vue-next"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -21,6 +21,7 @@ const authStore = useAuthStore()
 
 const email = ref("")
 const senha = ref("")
+const mostrarSenha = ref(false)
 const emailErro = ref("")
 const senhaErro = ref("")
 const feedback = ref<{ tipo: "erro" | "sucesso"; mensagem: string } | null>(null)
@@ -85,13 +86,25 @@ const onSubmit = async () => {
 
             <div class="space-y-2">
               <Label for="senha">Senha</Label>
-              <Input
-                id="senha"
-                v-model="senha"
-                type="password"
-                placeholder="Digite sua senha"
-                autocomplete="current-password"
-              />
+              <div class="relative">
+                <Input
+                  id="senha"
+                  v-model="senha"
+                  :type="mostrarSenha ? 'text' : 'password'"
+                  class="pr-10"
+                  placeholder="Digite sua senha"
+                  autocomplete="current-password"
+                />
+                <button
+                  type="button"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  :aria-label="mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'"
+                  @click="mostrarSenha = !mostrarSenha"
+                >
+                  <EyeOffIcon v-if="mostrarSenha" class="size-4" />
+                  <EyeIcon v-else class="size-4" />
+                </button>
+              </div>
               <p v-if="senhaErro" class="text-xs text-destructive">{{ senhaErro }}</p>
             </div>
 

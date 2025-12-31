@@ -19,11 +19,8 @@ export const useContaStore = defineStore("conta", {
     carregando: false,
   }),
   actions: {
-    async garantirContaNoPrimeiroLogin() {
+    async garantirContaNoPrimeiroLogin(userId: string | null) {
       try {
-        const { data } = await supabase.auth.getSession()
-        const userId = data.session?.user?.id
-
         if (!userId) {
           return
         }
@@ -58,11 +55,8 @@ export const useContaStore = defineStore("conta", {
         return
       }
     },
-    async carregarContaAtual() {
+    async carregarContaAtual(userId: string | null) {
       try {
-        const { data: sessionData } = await supabase.auth.getSession()
-        const userId = sessionData.session?.user?.id
-
         if (!userId) {
           this.contaAtual = null
           return
@@ -84,10 +78,7 @@ export const useContaStore = defineStore("conta", {
         this.contaAtual = null
       }
     },
-    async inicializarConta() {
-      const { data } = await supabase.auth.getSession()
-      const userId = data.session?.user?.id
-
+    async inicializarConta(userId: string | null) {
       if (!userId) {
         this.contaAtual = null
         this.carregando = false
@@ -96,8 +87,8 @@ export const useContaStore = defineStore("conta", {
 
       this.carregando = true
       try {
-        await this.garantirContaNoPrimeiroLogin()
-        await this.carregarContaAtual()
+        await this.garantirContaNoPrimeiroLogin(userId)
+        await this.carregarContaAtual(userId)
       } finally {
         this.carregando = false
       }

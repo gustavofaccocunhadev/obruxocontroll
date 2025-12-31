@@ -59,7 +59,7 @@ const onSubmit = async () => {
       <Card class="w-full">
         <CardHeader>
           <CardTitle>Recuperar senha</CardTitle>
-          <CardDescription>Enviaremos um link para redefinir sua senha.</CardDescription>
+          <CardDescription>Enviaremos um endereco para redefinir sua senha.</CardDescription>
         </CardHeader>
         <CardContent>
           <form class="space-y-4" @submit.prevent="onSubmit">
@@ -90,13 +90,13 @@ const onSubmit = async () => {
             <Button class="w-full" type="submit" :disabled="authStore.loading">
               <Loader2Icon v-if="authStore.loading" class="size-4 animate-spin" />
               <MailIcon v-else class="size-4" />
-              <span>{{ authStore.loading ? "Enviando..." : "Enviar link" }}</span>
+              <span>{{ authStore.loading ? "Enviando..." : "Enviar endereco" }}</span>
             </Button>
           </form>
         </CardContent>
         <CardFooter class="flex flex-col gap-3">
           <RouterLink class="text-sm text-muted-foreground underline-offset-4 hover:underline" to="/login">
-            Voltar para login
+            Voltar para entrar
           </RouterLink>
         </CardFooter>
       </Card>

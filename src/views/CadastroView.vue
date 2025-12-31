@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue"
 import { RouterLink, useRouter } from "vue-router"
-import { Loader2Icon, UserPlusIcon } from "lucide-vue-next"
+import { EyeIcon, EyeOffIcon, Loader2Icon, UserPlusIcon } from "lucide-vue-next"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -21,6 +21,8 @@ const router = useRouter()
 const email = ref("")
 const senha = ref("")
 const confirmacao = ref("")
+const mostrarSenha = ref(false)
+const mostrarConfirmacao = ref(false)
 const emailErro = ref("")
 const senhaErro = ref("")
 const confirmacaoErro = ref("")
@@ -100,25 +102,49 @@ const onSubmit = async () => {
 
             <div class="space-y-2">
               <Label for="senha">Senha</Label>
-              <Input
-                id="senha"
-                v-model="senha"
-                type="password"
-                placeholder="Crie uma senha"
-                autocomplete="new-password"
-              />
+              <div class="relative">
+                <Input
+                  id="senha"
+                  v-model="senha"
+                  :type="mostrarSenha ? 'text' : 'password'"
+                  class="pr-10"
+                  placeholder="Crie uma senha"
+                  autocomplete="new-password"
+                />
+                <button
+                  type="button"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  :aria-label="mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'"
+                  @click="mostrarSenha = !mostrarSenha"
+                >
+                  <EyeOffIcon v-if="mostrarSenha" class="size-4" />
+                  <EyeIcon v-else class="size-4" />
+                </button>
+              </div>
               <p v-if="senhaErro" class="text-xs text-destructive">{{ senhaErro }}</p>
             </div>
 
             <div class="space-y-2">
               <Label for="confirmacao">Confirmar senha</Label>
-              <Input
-                id="confirmacao"
-                v-model="confirmacao"
-                type="password"
-                placeholder="Repita sua senha"
-                autocomplete="new-password"
-              />
+              <div class="relative">
+                <Input
+                  id="confirmacao"
+                  v-model="confirmacao"
+                  :type="mostrarConfirmacao ? 'text' : 'password'"
+                  class="pr-10"
+                  placeholder="Repita sua senha"
+                  autocomplete="new-password"
+                />
+                <button
+                  type="button"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  :aria-label="mostrarConfirmacao ? 'Ocultar senha' : 'Mostrar senha'"
+                  @click="mostrarConfirmacao = !mostrarConfirmacao"
+                >
+                  <EyeOffIcon v-if="mostrarConfirmacao" class="size-4" />
+                  <EyeIcon v-else class="size-4" />
+                </button>
+              </div>
               <p v-if="confirmacaoErro" class="text-xs text-destructive">
                 {{ confirmacaoErro }}
               </p>

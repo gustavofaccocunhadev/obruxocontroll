@@ -10,6 +10,9 @@ type AuthState = {
 }
 
 let initPromise: Promise<void> | null = null
+let lastRevalidateAt = 0
+const REVALIDATE_MIN_INTERVAL_MS = 15000
+const REFRESH_GRACE_MS = 60000
 
 export const useAuthStore = defineStore("auth", {
   state: (): AuthState => ({
@@ -34,20 +37,30 @@ export const useAuthStore = defineStore("auth", {
 
           const contaStore = useContaStore()
           if (this.session) {
-            await contaStore.inicializarConta()
+            await contaStore.inicializarConta(this.session.user.id)
           } else {
             contaStore.limparContaAtual()
           }
 
-          supabase.auth.onAuthStateChange(async (_event, session) => {
+          supabase.auth.onAuthStateChange(async (event, session) => {
             this.session = session
             this.user = session?.user ?? null
 
             try {
-              if (session) {
-                await contaStore.inicializarConta()
-              } else {
+              if (!session || event === "SIGNED_OUT") {
                 contaStore.limparContaAtual()
+                return
+              }
+
+              const deveRecarregarConta =
+                event === "SIGNED_IN" || event === "USER_UPDATED"
+
+              if (
+                deveRecarregarConta &&
+                !contaStore.contaAtual &&
+                !contaStore.carregando
+              ) {
+                await contaStore.inicializarConta(session.user.id)
               }
             } catch {
               contaStore.limparContaAtual()
@@ -59,6 +72,57 @@ export const useAuthStore = defineStore("auth", {
       })()
 
       return initPromise
+    },
+    async revalidarSessao() {
+      const agora = Date.now()
+      if (agora - lastRevalidateAt < REVALIDATE_MIN_INTERVAL_MS) {
+        return false
+      }
+      lastRevalidateAt = agora
+
+      try {
+        const { data, error } = await supabase.auth.getSession()
+        if (error) {
+          return false
+        }
+
+        if (!data.session) {
+          this.session = null
+          this.user = null
+          useContaStore().limparContaAtual()
+          return true
+        }
+
+        let session = data.session
+        const expiraEm = session.expires_at ? session.expires_at * 1000 : 0
+
+        if (expiraEm && expiraEm - agora < REFRESH_GRACE_MS) {
+          const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession()
+          if (refreshError || !refreshed.session) {
+            try {
+              await supabase.auth.signOut({ scope: "local" })
+            } catch {
+              // Ignora erro de logout local e limpa o estado mesmo assim.
+            }
+            this.session = null
+            this.user = null
+            useContaStore().limparContaAtual()
+            return true
+          }
+          session = refreshed.session
+        }
+
+        this.session = session
+        this.user = session.user ?? null
+
+        const contaStore = useContaStore()
+        if (!contaStore.contaAtual && !contaStore.carregando) {
+          await contaStore.inicializarConta(session.user.id)
+        }
+        return false
+      } catch {
+        return false
+      }
     },
     async signIn(email: string, password: string) {
       this.loading = true

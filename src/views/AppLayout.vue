@@ -7,6 +7,7 @@ import {
   LogOutIcon,
   MenuIcon,
   PaletteIcon,
+  TagIcon,
   UsersIcon,
   XIcon,
 } from "lucide-vue-next"
@@ -24,11 +25,12 @@ const contaNome = computed(() => contaStore.contaAtual?.nome ?? "Conta")
 const itens = [
   { label: "Dashboard", to: "/app", icon: LayoutDashboardIcon },
   { label: "Clientes", to: "/app/clientes", icon: UsersIcon },
+  { label: "Categorias", to: "/app/categorias", icon: TagIcon },
   { label: "Artes", to: "/app/artes", icon: PaletteIcon },
   { label: "Financeiro", to: "/app/financeiro", icon: CreditCardIcon },
 ]
 
-const isAtivo = (path: string) => route.path === path
+const isAtivo = (path: string) => route.path === path || route.path.startsWith(`${path}/`)
 
 const sair = async () => {
   await authStore.signOut()

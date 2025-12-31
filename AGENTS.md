@@ -1,16 +1,17 @@
-# Decisions — SaaS Gestor de Artes (Vue 3 + Supabase)
+# Decisoes — Software como servico (SaaS) Gestor de Artes (Vue 3 + Supabase)
 
-## Language
+## Linguagem
 - Português Brasil
 - Me responda sempre em português
 
 Este documento registra decisões de arquitetura e padrões do projeto. Atualize quando houver mudanças relevantes.
 
 ## 0) Regras padrão
-- Sempre que criar algo, já criar a opção de editar, deletar, salvar CRUD completo.
-- Sempre pensar em responsividade, "mobile first". Vai ser usado mais em celulares.
+- Sempre que criar algo, já criar a opção de editar, deletar, salvar cadastro, listagem, edicao e exclusao completos.
+- Sempre pensar em responsividade, prioridade para celular. Vai ser usado mais em celulares.
+- Evitar termos em ingles em textos da interface e documentos; preferir portugues.
 
-## 1) Padrão de nomenclatura (Database)
+## 1) Padrão de nomenclatura (Banco de dados)
 - Tabelas e colunas em português, SEM acentos e SEM cedilha.
 - Formato: `snake_case`.
 - Tabelas no plural: `clientes`, `artes`, `contas`.
@@ -19,60 +20,81 @@ Este documento registra decisões de arquitetura e padrões do projeto. Atualize
   - `criado_em` e `atualizado_em` em `timestamptz`.
   - Campos de cobrança/pagamento como `date` (apenas data).
 
-## 2) Multi-tenant (isolamento por conta)
-- Entidade de tenancy: `contas`.
+## 2) Multicontas (isolamento por conta)
+- Entidade de conta: `contas`.
 - Permissões por associação: `conta_membros`.
-- Isolamento garantido por RLS (Row Level Security) em todas as tabelas.
-- Frontend nunca confia em filtro por `id_conta` como segurança; é apenas UX.
+- Isolamento garantido por RLS (seguranca em nivel de linha) em todas as tabelas.
+- A interface nunca confia em filtro por `id_conta` como segurança; é apenas experiencia do usuario.
 
-## 3) Auth e bootstrap de conta
-- Auth via Supabase Auth (email/senha).
-- No primeiro login:
+## 3) Autenticacao e criacao de conta
+- Autenticacao via Supabase (email/senha).
+- No primeiro acesso:
   - Criar uma `conta` automaticamente.
   - Criar registro em `conta_membros` com `papel='dono'`.
-- MVP: sem convites/gestão avançada de membros (pode ser evoluído).
+- PMV (produto minimo viavel): sem convites/gestão avançada de membros (pode ser evoluído).
 
 
 ## 3.1) Admin geral (RLS)
 - Usuario admin definido em auth.users.raw_app_meta_data.role = "admin".
 - Funcao helper: public.is_admin().
-- Template de policy para novas tabelas (com comentario identificador):
+- Modelo de politica para novas tabelas (com comentario identificador):
 
 ```sql
--- ADMIN_POLICY_TEMPLATE: aplicar em novas tabelas
+-- MODELO_POLITICA_ADMIN: aplicar em novas tabelas
 create policy admin_all on public.sua_tabela
 for all
 using (public.is_admin())
 with check (public.is_admin());
 ```
+
+## 3.2) Autenticacao - evitar travamento ao voltar a aba
+- Nunca chamar `supabase.auth.getSession()` dentro de `onAuthStateChange` (nem indiretamente).
+- Dentro do callback, use apenas o `session` recebido para decidir e passar `user.id` para stores.
+- So inicializar a conta em eventos relevantes (`SIGNED_IN`, `USER_UPDATED`).
+- Em `SIGNED_OUT`, limpar estado e nao fazer chamadas extras.
+- Motivo: chamar `getSession` dentro do callback pode causar bloqueio e deixar telas em "carregando" infinito ao trocar de aba.
 ## 4) Financeiro
 - Armazenar valores sempre em centavos: `valor_centavos int`.
-- Formatar BRL apenas no frontend.
-- Relação 1:1 no MVP: cada `arte` possui no máximo um registro em `financeiro_artes`.
-- Regras de consistência (validar no frontend e também via constraints quando fizer sentido):
+- Formatar BRL apenas na interface.
+- Relação 1:1 no PMV (produto minimo viavel): cada `arte` possui no máximo um registro em `financeiro_artes`.
+- Regras de consistência (validar na interface e também via constraints quando fizer sentido):
   - `modelo_cobranca='cortesia'` implica `status_pagamento='cortesia'` e `valor_centavos=0`.
 
-## 5) Storage (arquivos de artes)
-- Bucket: `art-files` (privado).
-- Path padrão: `{id_conta}/{id_arte}/{nome_arquivo}`.
-- Policies de Storage restringem read/write apenas se o usuário for membro da `id_conta` do path.
+## 5) Armazenamento (arquivos de artes)
+- Compartimento: `art-files` (privado).
+- Caminho padrão: `{id_conta}/{id_arte}/{nome_arquivo}`.
+- Politicas de armazenamento restringem leitura/escrita apenas se o usuário for membro da `id_conta` do caminho.
 
-## 6) Frontend (organização)
-- Router: `vue-router` com guard em rotas `/app`.
-- State mínimo via Pinia:
+## 6) Interface (organização)
+- Roteador: `vue-router` com guarda nas rotas `/app`.
+- Estado mínimo via Pinia:
   - `authStore` (sessão/usuário)
   - `contaStore` (conta atual)
 - Acesso a dados via repositórios:
   - `src/repositories/clientes.ts`, `artes.ts`, `financeiro.ts`, `arquivos.ts`.
-- Composables utilitários:
+- Funcoes reutilizaveis:
   - `useMoeda` (BRL), `useToast`, `useAuth`, `useConta`.
 
-## 7) Evolução planejada (não MVP)
+## 7) Evolução planejada (não PMV)
 - Múltiplas cobranças por arte (parcelas, extras).
 - Permissões por papel (dono/membro) mais completas.
-- Histórico de alterações por arte (audit log).
+- Histórico de alterações por arte (registro de auditoria).
 
 ## 8) RESTRIÇÕES
 - Não criar novo projeto; trabalhar no repo atual.
 - Manter nomes de tabelas em PT-BR (snake_case, sem acentos).
 - Manter shadcn-vue + Tailwind.
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -11,7 +11,7 @@ const DEFAULT_TIMEOUT_MS = 15000
 
 const fetchWithTimeout: typeof fetch = async (input, init = {}) => {
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS)
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
 
   if (init.signal) {
     if (init.signal.aborted) {
@@ -22,9 +22,21 @@ const fetchWithTimeout: typeof fetch = async (input, init = {}) => {
   }
 
   try {
-    return await fetch(input, { ...init, signal: controller.signal })
+    const fetchPromise = fetch(input, { ...init, signal: controller.signal })
+    fetchPromise.catch(() => undefined)
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        controller.abort()
+        reject(new Error("Timeout"))
+      }, DEFAULT_TIMEOUT_MS)
+    })
+
+    return await Promise.race([fetchPromise, timeoutPromise])
   } finally {
-    clearTimeout(timeoutId)
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
   }
 }
 

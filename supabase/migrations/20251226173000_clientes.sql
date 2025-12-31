@@ -75,9 +75,10 @@ for delete using (
   )
 );
 
--- ADMIN_POLICY_TEMPLATE: aplicar em novas tabelas
+-- MODELO_POLITICA_ADMIN: aplicar em novas tabelas
 drop policy if exists clientes_admin_all on public.clientes;
 create policy clientes_admin_all on public.clientes
 for all
 using (public.is_admin())
 with check (public.is_admin());
+

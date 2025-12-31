@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue"
+import { computed, ref, watch } from "vue"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query"
 import {
-  ArrowLeftIcon,
   Loader2Icon,
   PencilIcon,
   PlusIcon,
@@ -10,8 +9,20 @@ import {
   Trash2Icon,
   UserPlusIcon,
 } from "lucide-vue-next"
+import { useForm } from "vee-validate"
+import { toTypedSchema } from "@vee-validate/zod"
+import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "vue-sonner"
@@ -22,15 +33,26 @@ import {
   listarClientes,
   removerCliente,
   type Cliente,
-  type TipoCliente,
 } from "@/repositories/clientes"
+import {
+  listarCategoriasClientes,
+  type CategoriaCliente,
+} from "@/repositories/categorias_clientes"
 
 type ClientePayload = {
   nome: string
   whatsapp: string | null
   instagram: string | null
-  tipo: TipoCliente
+  id_categoria: string
   cidade: string | null
+}
+
+type ClienteFormValues = {
+  nome: string
+  whatsapp: string
+  instagram: string
+  id_categoria: string
+  cidade: string
 }
 
 const contaStore = useContaStore()
@@ -38,35 +60,58 @@ const queryClient = useQueryClient()
 
 const termoBusca = ref("")
 const editandoId = ref<string | null>(null)
-const modo = ref<"lista" | "form">("lista")
+const dialogAberto = ref(false)
 
-const formulario = reactive({
+const valoresIniciais: ClienteFormValues = {
   nome: "",
   whatsapp: "",
   instagram: "",
-  tipo: "outro" as TipoCliente,
+  id_categoria: "",
   cidade: "",
-})
+}
 
-const erros = reactive({
-  nome: "",
-  tipo: "",
-})
+const clienteSchema = toTypedSchema(
+  z.object({
+    nome: z.string().min(1, "Informe o nome do cliente."),
+    whatsapp: z.string().optional(),
+    instagram: z.string().optional(),
+    id_categoria: z.string().min(1, "Selecione uma categoria."),
+    cidade: z.string().optional(),
+  }),
+)
 
-const tipos = [
-  { value: "time", label: "Time" },
-  { value: "empresa", label: "Empresa" },
-  { value: "atleta", label: "Atleta" },
-  { value: "outro", label: "Outro" },
-]
+const { defineField, errors: erros, handleSubmit, resetForm, setValues } =
+  useForm<ClienteFormValues>({
+    validationSchema: clienteSchema,
+    initialValues: valoresIniciais,
+  })
+
+const [nome, nomeAttrs] = defineField("nome")
+const [whatsapp, whatsappAttrs] = defineField("whatsapp")
+const [instagram, instagramAttrs] = defineField("instagram")
+const [idCategoria, idCategoriaAttrs] = defineField("id_categoria")
+const [cidade, cidadeAttrs] = defineField("cidade")
 
 const idConta = computed(() => contaStore.contaAtual?.id ?? "")
 
 const clientesQuery = useQuery({
   queryKey: computed(() => ["clientes", idConta.value]),
-  queryFn: async () => {
+  queryFn: async ({ signal }) => {
     if (!idConta.value) return []
-    const { data, error } = await listarClientes(idConta.value)
+    const { data, error } = await listarClientes(idConta.value, signal)
+    if (error) {
+      throw new Error(error)
+    }
+    return data
+  },
+  enabled: computed(() => Boolean(idConta.value)),
+})
+
+const categoriasQuery = useQuery({
+  queryKey: computed(() => ["categorias-clientes", idConta.value]),
+  queryFn: async ({ signal }) => {
+    if (!idConta.value) return []
+    const { data, error } = await listarCategoriasClientes(idConta.value, signal)
     if (error) {
       throw new Error(error)
     }
@@ -76,11 +121,17 @@ const clientesQuery = useQuery({
 })
 
 const criarMutation = useMutation({
-  mutationFn: async (payload: ClientePayload) => {
+  mutationFn: async ({
+    payload,
+    signal,
+  }: {
+    payload: ClientePayload
+    signal?: AbortSignal
+  }) => {
     if (!idConta.value) {
       throw new Error("conta")
     }
-    const { data, error } = await criarCliente(idConta.value, payload)
+    const { data, error } = await criarCliente(idConta.value, payload, signal)
     if (error || !data) {
       throw new Error(error ?? "erro")
     }
@@ -89,11 +140,19 @@ const criarMutation = useMutation({
 })
 
 const atualizarMutation = useMutation({
-  mutationFn: async ({ id, payload }: { id: string; payload: ClientePayload }) => {
+  mutationFn: async ({
+    id,
+    payload,
+    signal,
+  }: {
+    id: string
+    payload: ClientePayload
+    signal?: AbortSignal
+  }) => {
     if (!idConta.value) {
       throw new Error("conta")
     }
-    const { data, error } = await atualizarCliente(idConta.value, id, payload)
+    const { data, error } = await atualizarCliente(idConta.value, id, payload, signal)
     if (error || !data) {
       throw new Error(error ?? "erro")
     }
@@ -102,11 +161,11 @@ const atualizarMutation = useMutation({
 })
 
 const removerMutation = useMutation({
-  mutationFn: async (id: string) => {
+  mutationFn: async ({ id, signal }: { id: string; signal?: AbortSignal }) => {
     if (!idConta.value) {
       throw new Error("conta")
     }
-    const { error } = await removerCliente(idConta.value, id)
+    const { error } = await removerCliente(idConta.value, id, signal)
     if (error) {
       throw new Error(error)
     }
@@ -114,15 +173,15 @@ const removerMutation = useMutation({
   },
 })
 
-const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
+const withAbortTimeout = async <T,>(
+  executor: (signal: AbortSignal) => Promise<T>,
+  ms: number,
+) => {
+  const controller = new AbortController()
   let timeoutId: ReturnType<typeof setTimeout> | null = null
   try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_resolve, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("timeout")), ms)
-      }),
-    ])
+    timeoutId = setTimeout(() => controller.abort(), ms)
+    return await executor(controller.signal)
   } finally {
     if (timeoutId) {
       clearTimeout(timeoutId)
@@ -131,87 +190,105 @@ const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
 }
 
 const clientes = computed(() => clientesQuery.data.value ?? [])
-const carregando = computed(
-  () => clientesQuery.isLoading.value || clientesQuery.isFetching.value,
+const categorias = computed(() => categoriasQuery.data.value ?? [])
+const carregandoInicial = computed(() => clientesQuery.isLoading.value)
+const carregandoCategorias = computed(() => categoriasQuery.isLoading.value)
+const atualizando = computed(
+  () => clientesQuery.isFetching.value && !clientesQuery.isLoading.value,
 )
-const erroListagem = computed(() =>
-  clientesQuery.isError.value ? "Nao foi possivel carregar os clientes." : "",
-)
+const erroListagem = computed(() => {
+  if (!clientesQuery.isError.value) return ""
+  return clientes.value.length
+    ? "Falha ao atualizar a lista. Exibindo dados locais."
+    : "Nao foi possivel carregar os clientes."
+})
 const salvando = computed(
   () => criarMutation.isPending.value || atualizarMutation.isPending.value,
 )
+
+const categoriasPorId = computed<Record<string, CategoriaCliente>>(() => {
+  return categorias.value.reduce<Record<string, CategoriaCliente>>((acc, categoria) => {
+    acc[categoria.id] = categoria
+    return acc
+  }, {})
+})
 
 const clientesFiltrados = computed(() => {
   const termo = termoBusca.value.trim().toLowerCase()
   if (!termo) return clientes.value
 
   return clientes.value.filter((cliente) => {
+    const categoriaNome = categoriasPorId.value[cliente.id_categoria]?.nome ?? ""
     const campos = [
       cliente.nome,
       cliente.cidade ?? "",
       cliente.instagram ?? "",
       cliente.whatsapp ?? "",
-      cliente.tipo,
+      categoriaNome,
     ]
     return campos.some((campo) => campo.toLowerCase().includes(termo))
   })
 })
 
-const obterTipoLabel = (tipo: TipoCliente) => {
-  return tipos.find((item) => item.value === tipo)?.label ?? tipo
+const obterCategoriaNome = (idCategoria: string | null | undefined) => {
+  if (!idCategoria) return "Categoria nao informada"
+  return categoriasPorId.value[idCategoria]?.nome ?? "Categoria nao informada"
+}
+
+const definirCategoriaPadrao = () => {
+  if (!categorias.value.length) return
+  if (!idCategoria.value) {
+    const primeira = categorias.value[0]
+    if (primeira) {
+      idCategoria.value = primeira.id
+    }
+  }
 }
 
 const limparFormulario = () => {
-  formulario.nome = ""
-  formulario.whatsapp = ""
-  formulario.instagram = ""
-  formulario.tipo = "outro"
-  formulario.cidade = ""
+  resetForm({ values: valoresIniciais })
   editandoId.value = null
-  erros.nome = ""
-  erros.tipo = ""
+  definirCategoriaPadrao()
 }
 
 const abrirCadastro = () => {
   limparFormulario()
-  modo.value = "form"
+  dialogAberto.value = true
 }
 
-const validar = () => {
-  erros.nome = ""
-  erros.tipo = ""
-
-  if (!formulario.nome.trim()) {
-    erros.nome = "Informe o nome do cliente."
-  }
-
-  if (!formulario.tipo) {
-    erros.tipo = "Selecione um tipo."
-  }
-
-  return !erros.nome && !erros.tipo
+const normalizarTexto = (valor: string) => {
+  const texto = valor.trim()
+  return texto ? texto : null
 }
 
-const salvarCliente = async () => {
+const salvarCliente = handleSubmit(async (values) => {
   if (!idConta.value) {
     toast.error("Conta nao carregada. Recarregue a pagina.")
     return
   }
-  if (!validar()) return
+  if (!categorias.value.length) {
+    toast.error("Cadastre uma categoria antes de salvar o cliente.")
+    return
+  }
+
+  const payload: ClientePayload = {
+    nome: values.nome.trim(),
+    whatsapp: normalizarTexto(values.whatsapp),
+    instagram: normalizarTexto(values.instagram),
+    id_categoria: values.id_categoria,
+    cidade: normalizarTexto(values.cidade),
+  }
 
   try {
     if (editandoId.value) {
-      const data = await withTimeout(
-        atualizarMutation.mutateAsync({
-          id: editandoId.value,
-          payload: {
-            nome: formulario.nome.trim(),
-            whatsapp: formulario.whatsapp.trim() || null,
-            instagram: formulario.instagram.trim() || null,
-            tipo: formulario.tipo,
-            cidade: formulario.cidade.trim() || null,
-          },
-        }),
+      const idEdicao = editandoId.value
+      const data = await withAbortTimeout(
+        (signal) =>
+          atualizarMutation.mutateAsync({
+            id: idEdicao,
+            payload,
+            signal,
+          }),
         15000,
       )
 
@@ -220,19 +297,16 @@ const salvarCliente = async () => {
         (lista = []) => lista.map((cliente) => (cliente.id === data.id ? data : cliente)),
       )
       toast.success("Cliente atualizado com sucesso.")
-      limparFormulario()
-      modo.value = "lista"
+      dialogAberto.value = false
       return
     }
 
-    const data = await withTimeout(
-      criarMutation.mutateAsync({
-        nome: formulario.nome.trim(),
-        whatsapp: formulario.whatsapp.trim() || null,
-        instagram: formulario.instagram.trim() || null,
-        tipo: formulario.tipo,
-        cidade: formulario.cidade.trim() || null,
-      }),
+    const data = await withAbortTimeout(
+      (signal) =>
+        criarMutation.mutateAsync({
+          payload,
+          signal,
+        }),
       15000,
     )
 
@@ -241,32 +315,27 @@ const salvarCliente = async () => {
       (lista = []) => [data, ...lista],
     )
     toast.success("Cliente cadastrado com sucesso.")
-    limparFormulario()
-    modo.value = "lista"
+    dialogAberto.value = false
   } catch (error) {
     const mensagem =
-      error instanceof Error && error.message === "timeout"
+      error instanceof Error && /abort|timeout/i.test(error.message)
         ? "O servidor demorou para responder. Tente novamente."
         : "Erro inesperado ao salvar o cliente."
     toast.error(mensagem)
   }
-}
+})
 
 const iniciarEdicao = (cliente: Cliente) => {
-  formulario.nome = cliente.nome
-  formulario.whatsapp = cliente.whatsapp ?? ""
-  formulario.instagram = cliente.instagram ?? ""
-  formulario.tipo = cliente.tipo
-  formulario.cidade = cliente.cidade ?? ""
+  resetForm({ values: valoresIniciais })
+  setValues({
+    nome: cliente.nome,
+    whatsapp: cliente.whatsapp ?? "",
+    instagram: cliente.instagram ?? "",
+    id_categoria: cliente.id_categoria,
+    cidade: cliente.cidade ?? "",
+  })
   editandoId.value = cliente.id
-  erros.nome = ""
-  erros.tipo = ""
-  modo.value = "form"
-}
-
-const cancelarEdicao = () => {
-  limparFormulario()
-  modo.value = "lista"
+  dialogAberto.value = true
 }
 
 const excluirCliente = async (cliente: Cliente) => {
@@ -276,7 +345,10 @@ const excluirCliente = async (cliente: Cliente) => {
   if (!confirmar) return
 
   try {
-    const idRemovido = await withTimeout(removerMutation.mutateAsync(cliente.id), 15000)
+    const idRemovido = await withAbortTimeout(
+      (signal) => removerMutation.mutateAsync({ id: cliente.id, signal }),
+      15000,
+    )
     queryClient.setQueryData<Cliente[]>(
       ["clientes", idConta.value],
       (lista = []) => lista.filter((item) => item.id !== idRemovido),
@@ -284,7 +356,7 @@ const excluirCliente = async (cliente: Cliente) => {
     toast.success("Cliente removido com sucesso.")
   } catch (error) {
     const mensagem =
-      error instanceof Error && error.message === "timeout"
+      error instanceof Error && /abort|timeout/i.test(error.message)
         ? "O servidor demorou para responder. Tente novamente."
         : "Nao foi possivel remover o cliente."
     toast.error(mensagem)
@@ -292,9 +364,30 @@ const excluirCliente = async (cliente: Cliente) => {
   }
 
   if (editandoId.value === cliente.id) {
-    limparFormulario()
+    dialogAberto.value = false
   }
 }
+
+watch(dialogAberto, (aberto) => {
+  if (!aberto) {
+    limparFormulario()
+    return
+  }
+  if (!editandoId.value) {
+    definirCategoriaPadrao()
+  }
+})
+
+watch(categorias, (lista) => {
+  if (!lista.length) return
+  if (!dialogAberto.value || editandoId.value) return
+  if (!idCategoria.value) {
+    const primeira = lista[0]
+    if (primeira) {
+      idCategoria.value = primeira.id
+    }
+  }
+})
 </script>
 
 <template>
@@ -306,87 +399,102 @@ const excluirCliente = async (cliente: Cliente) => {
           Cadastre pessoas ou empresas que contratam os servicos da sua conta.
         </p>
       </div>
-      <Button
-        v-if="modo === 'lista'"
-        type="button"
-        size="sm"
-        @click="abrirCadastro"
-      >
+      <Button type="button" size="sm" @click="abrirCadastro">
         <PlusIcon class="size-4" />
         <span>Adicionar cliente</span>
       </Button>
     </header>
 
-    <div v-if="modo === 'form'" class="grid gap-6">
-      <Card>
-        <CardHeader>
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle>{{ editandoId ? "Editar cliente" : "Novo cliente" }}</CardTitle>
-            <Button type="button" variant="outline" size="sm" @click="cancelarEdicao">
-              <ArrowLeftIcon class="size-4" />
-              <span>Voltar para lista</span>
-            </Button>
+    <Dialog v-model:open="dialogAberto">
+      <DialogContent
+        class="top-auto bottom-0 left-0 right-0 max-w-none translate-x-0 translate-y-0 rounded-t-2xl border-t sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:right-auto sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg"
+      >
+        <DialogHeader>
+          <DialogTitle>{{ editandoId ? "Editar cliente" : "Novo cliente" }}</DialogTitle>
+          <DialogDescription>Nome, contato e cidade para facilitar o atendimento.</DialogDescription>
+        </DialogHeader>
+        <form class="space-y-4" @submit.prevent="salvarCliente">
+          <div class="space-y-2">
+            <Label for="nome">Nome</Label>
+            <Input id="nome" v-model="nome" v-bind="nomeAttrs" placeholder="Ex: Atletico Real" />
+            <p v-if="erros.nome" class="text-xs text-destructive">{{ erros.nome }}</p>
           </div>
-          <CardDescription>Nome, contato e cidade para facilitar o atendimento.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form class="space-y-4" @submit.prevent="salvarCliente">
-            <div class="space-y-2">
-              <Label for="nome">Nome</Label>
-              <Input id="nome" v-model="formulario.nome" placeholder="Ex: Atletico Real" />
-              <p v-if="erros.nome" class="text-xs text-destructive">{{ erros.nome }}</p>
-            </div>
 
-            <div class="space-y-2">
-              <Label for="whatsapp">Whatsapp</Label>
-              <Input
-                id="whatsapp"
-                v-model="formulario.whatsapp"
-                type="tel"
-                placeholder="(11) 99999-0000"
-              />
-            </div>
+          <div class="space-y-2">
+            <Label for="whatsapp">Whatsapp</Label>
+            <Input
+              id="whatsapp"
+              v-model="whatsapp"
+              v-bind="whatsappAttrs"
+              type="tel"
+              placeholder="(11) 99999-0000"
+            />
+          </div>
 
-            <div class="space-y-2">
-              <Label for="instagram">Instagram</Label>
-              <Input id="instagram" v-model="formulario.instagram" placeholder="@exemplo" />
-            </div>
+          <div class="space-y-2">
+            <Label for="instagram">Instagram</Label>
+            <Input
+              id="instagram"
+              v-model="instagram"
+              v-bind="instagramAttrs"
+              placeholder="@exemplo"
+            />
+          </div>
 
-            <div class="space-y-2">
-              <Label for="tipo">Tipo</Label>
-              <select
-                id="tipo"
-                v-model="formulario.tipo"
-                class="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-              >
-                <option v-for="tipo in tipos" :key="tipo.value" :value="tipo.value">
-                  {{ tipo.label }}
-                </option>
-              </select>
-              <p v-if="erros.tipo" class="text-xs text-destructive">{{ erros.tipo }}</p>
-            </div>
+          <div class="space-y-2">
+            <Label for="categoria">Categoria</Label>
+            <select
+              id="categoria"
+              v-model="idCategoria"
+              v-bind="idCategoriaAttrs"
+              class="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
+              <option value="" disabled>Selecione uma categoria</option>
+              <option v-for="categoria in categorias" :key="categoria.id" :value="categoria.id">
+                {{ categoria.nome }}
+              </option>
+            </select>
+            <RouterLink to="/app/categorias" class="text-xs font-medium text-primary underline-offset-2 hover:underline">
+              Gerenciar categorias
+            </RouterLink>
+            <p v-if="!categorias.length && !carregandoCategorias" class="text-xs text-muted-foreground">
+              Nenhuma categoria cadastrada. Crie uma categoria antes de salvar.
+            </p>
+            <p v-if="erros.id_categoria" class="text-xs text-destructive">
+              {{ erros.id_categoria }}
+            </p>
+          </div>
 
-            <div class="space-y-2">
-              <Label for="cidade">Cidade</Label>
-              <Input id="cidade" v-model="formulario.cidade" placeholder="Ex: Sao Paulo" />
-            </div>
+          <div class="space-y-2">
+            <Label for="cidade">Cidade</Label>
+            <Input
+              id="cidade"
+              v-model="cidade"
+              v-bind="cidadeAttrs"
+              placeholder="Ex: Sao Paulo"
+            />
+          </div>
 
-            <div class="flex flex-wrap gap-2">
-              <Button class="flex-1" type="submit" :disabled="salvando">
-                <Loader2Icon v-if="salvando" class="size-4 animate-spin" />
-                <SaveIcon v-else-if="editandoId" class="size-4" />
-                <UserPlusIcon v-else class="size-4" />
-                <span>
-                  {{ salvando ? "Salvando..." : editandoId ? "Salvar alteracoes" : "Cadastrar cliente" }}
-                </span>
+          <DialogFooter class="pt-2">
+            <DialogClose as-child>
+              <Button type="button" variant="outline" :disabled="salvando">
+                Cancelar
               </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+            </DialogClose>
+            <Button type="submit" :disabled="salvando">
+              <Loader2Icon v-if="salvando" class="size-4 animate-spin" />
+              <SaveIcon v-else-if="editandoId" class="size-4" />
+              <UserPlusIcon v-else class="size-4" />
+              <span>
+                {{ salvando ? "Salvando..." : editandoId ? "Salvar alteracoes" : "Cadastrar cliente" }}
+              </span>
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
 
-    <div v-else class="grid gap-6">
+    <div class="grid gap-6">
       <Card>
         <CardHeader>
           <div class="flex flex-wrap items-center justify-between gap-3">
@@ -402,15 +510,22 @@ const excluirCliente = async (cliente: Cliente) => {
             <Input id="busca" v-model="termoBusca" placeholder="Nome, cidade ou contato" />
           </div>
 
-          <div v-if="carregando" class="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">
-            Carregando clientes...
+          <div
+            v-if="erroListagem"
+            class="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-xs text-destructive"
+          >
+            {{ erroListagem }}
           </div>
 
           <div
-            v-else-if="erroListagem"
-            class="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-6 text-sm text-destructive"
+            v-if="atualizando"
+            class="rounded-lg border border-dashed px-4 py-3 text-xs text-muted-foreground"
           >
-            {{ erroListagem }}
+            Atualizando lista...
+          </div>
+
+          <div v-if="carregandoInicial" class="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">
+            Carregando clientes...
           </div>
 
           <div
@@ -430,7 +545,8 @@ const excluirCliente = async (cliente: Cliente) => {
                 <div class="space-y-1">
                   <p class="text-sm font-semibold">{{ cliente.nome }}</p>
                   <p class="text-xs uppercase tracking-wide text-muted-foreground">
-                    {{ obterTipoLabel(cliente.tipo) }} - {{ cliente.cidade || "Cidade nao informada" }}
+                    {{ obterCategoriaNome(cliente.id_categoria) }} -
+                    {{ cliente.cidade || "Cidade nao informada" }}
                   </p>
                   <div class="text-xs text-muted-foreground">
                     <span v-if="cliente.whatsapp">WhatsApp: {{ cliente.whatsapp }}</span>

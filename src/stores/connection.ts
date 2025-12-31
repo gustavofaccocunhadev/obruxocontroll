@@ -28,9 +28,9 @@ export const useConnectionStore = defineStore('connection', () => {
 
     isConnecting.value = true
     try {
-      // Simple low-cost query to verify connection (using profiles or any light table)
+      // Simple low-cost query to verify connection (using perfis or any light table)
       // Limit 0 is enough to check connection without data transfer overhead
-      const { error } = await supabase.from('profiles').select('id').limit(1)
+      const { error } = await supabase.from('perfis').select('id').limit(1)
 
       if (error) {
         // If it's a fetch error (network), mark as unhealthy

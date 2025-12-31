@@ -1,48 +1,53 @@
 # obruxocontroll
 
-This template should help get you started developing with Vue 3 in Vite.
+Software como servico (SaaS) Gestor de Artes (Vue 3 + Supabase).
 
-## Recommended IDE Setup
+## Requisitos
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- Node 20.19+ ou 22.12+
+- Projeto Supabase remoto configurado
 
-## Recommended Browser Setup
+## Configuracao de ambiente
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd) 
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+Crie um `.env` na raiz com:
 
-## Type Support for `.vue` Imports in TS
+```env
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+```
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+## Instalacao
 
 ```sh
 npm install
 ```
 
-### Compile and Hot-Reload for Development
+## Desenvolvimento
 
 ```sh
 npm run dev
 ```
 
-### Type-Check, Compile and Minify for Production
+## Banco de dados (Supabase remoto)
+
+Opcional com linha de comando:
 
 ```sh
-npm run build
+supabase login
+supabase link --project-ref <seu-project-ref>
+supabase db push
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+Se preferir, aplique as migrations manualmente pelo SQL Editor do Supabase.
+
+## Qualidade
 
 ```sh
 npm run lint
+npm run type-check
 ```
+
+## Verificacoes recomendadas
+
+- Testar RLS com 2 usuarios (nao deve vazar dados entre contas).
+- Verificar envio no armazenamento (compartimento `art-files`).

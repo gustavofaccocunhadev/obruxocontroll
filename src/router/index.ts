@@ -7,7 +7,9 @@ import RecuperarSenhaView from "../views/RecuperarSenhaView.vue"
 import AppLayout from "../views/AppLayout.vue"
 import DashboardView from "../views/app/DashboardView.vue"
 import ClientesView from "../views/app/ClientesView.vue"
+import CategoriasClientesView from "../views/app/CategoriasClientesView.vue"
 import ArtesView from "../views/app/ArtesView.vue"
+import ArteDetalheView from "../views/app/ArteDetalheView.vue"
 import FinanceiroView from "../views/app/FinanceiroView.vue"
 import { useAuthStore } from "@/stores/auth"
 import { useContaStore } from "@/stores/conta"
@@ -52,9 +54,19 @@ const router = createRouter({
           component: ClientesView,
         },
         {
+          path: "categorias",
+          name: "app-categorias-clientes",
+          component: CategoriasClientesView,
+        },
+        {
           path: "artes",
           name: "app-artes",
           component: ArtesView,
+        },
+        {
+          path: "artes/:id",
+          name: "app-arte-detalhe",
+          component: ArteDetalheView,
         },
         {
           path: "financeiro",
@@ -78,7 +90,7 @@ export const setupRouterGuards = (router: Router, pinia: Pinia) => {
     }
 
     if (to.meta.requiresAuth && authStore.session && !contaStore.contaAtual && !contaStore.carregando) {
-      await contaStore.inicializarConta()
+      await contaStore.inicializarConta(authStore.session.user.id)
     }
 
     return true

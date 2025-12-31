@@ -16,7 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
       <Card>
         <CardHeader>
           <CardTitle>Clientes ativos</CardTitle>
-          <CardDescription>Placeholder de metricas.</CardDescription>
+          <CardDescription>Metricas temporarias.</CardDescription>
         </CardHeader>
         <CardContent>
           <p class="text-2xl font-semibold">--</p>
