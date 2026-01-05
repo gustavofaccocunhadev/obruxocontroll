@@ -7,6 +7,8 @@ export type Arte = {
   id: string
   id_conta: string
   id_cliente: string | null
+  data_solicitacao: string
+  data_entrega: string | null
   titulo: string
   descricao: string | null
   valor_centavos: number
@@ -28,6 +30,8 @@ export type ArteFiltro = {
 
 type ArteInput = {
   id_cliente?: string | null
+  data_solicitacao: string
+  data_entrega?: string | null
   titulo: string
   descricao?: string | null
   valor_centavos?: number
@@ -37,10 +41,10 @@ type ArteInput = {
 }
 
 const camposArte =
-  "id,id_conta,id_cliente,titulo,descricao,valor_centavos,link_download,status,prazo_entrega,criado_em,atualizado_em"
+  "id,id_conta,id_cliente,data_solicitacao,data_entrega,titulo,descricao,valor_centavos,link_download,status,prazo_entrega,criado_em,atualizado_em"
 
 const camposFinanceiro =
-  "id_arte,modelo_cobranca,status_pagamento,valor_centavos,cobrado_em,pago_em,observacoes,criado_em,atualizado_em"
+  "id_arte,modelo_cobranca,status_pagamento,valor_centavos,pago_em,observacoes,criado_em,atualizado_em"
 
 export type ArteComFinanceiro = Arte & {
   financeiro: FinanceiroArte | null
@@ -57,6 +61,7 @@ export const listarArtes = async (
     .from("artes")
     .select(`${camposArte}, financeiro:financeiro_artes${join}(${camposFinanceiro})`)
     .eq("id_conta", idConta)
+    .order("data_solicitacao", { ascending: false })
     .order("criado_em", { ascending: false })
 
   if (filtro.idCliente) {
@@ -68,11 +73,11 @@ export const listarArtes = async (
   }
 
   if (filtro.periodoInicio) {
-    request = request.gte("criado_em", filtro.periodoInicio)
+    request = request.gte("data_solicitacao", filtro.periodoInicio)
   }
 
   if (filtro.periodoFim) {
-    request = request.lte("criado_em", filtro.periodoFim)
+    request = request.lte("data_solicitacao", filtro.periodoFim)
   }
 
   if (filtro.modeloCobranca) {
@@ -110,6 +115,8 @@ export const criarArte = async (
     .insert({
       id_conta: idConta,
       id_cliente: payload.id_cliente ?? null,
+      data_solicitacao: payload.data_solicitacao,
+      data_entrega: payload.data_entrega ?? null,
       titulo: payload.titulo,
       descricao: payload.descricao ?? null,
       valor_centavos: payload.valor_centavos ?? 0,
@@ -138,6 +145,8 @@ export const atualizarArte = async (
     .from("artes")
     .update({
       id_cliente: payload.id_cliente ?? null,
+      data_solicitacao: payload.data_solicitacao,
+      data_entrega: payload.data_entrega ?? null,
       titulo: payload.titulo,
       descricao: payload.descricao ?? null,
       valor_centavos: payload.valor_centavos ?? 0,

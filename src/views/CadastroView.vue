@@ -13,33 +13,52 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { toast } from "vue-sonner"
 import { useAuthStore } from "@/stores/auth"
 
 const authStore = useAuthStore()
 const router = useRouter()
 
+const nome = ref("")
 const email = ref("")
+const cpfCnpj = ref("")
 const senha = ref("")
 const confirmacao = ref("")
 const mostrarSenha = ref(false)
 const mostrarConfirmacao = ref(false)
+const nomeErro = ref("")
 const emailErro = ref("")
+const cpfCnpjErro = ref("")
 const senhaErro = ref("")
 const confirmacaoErro = ref("")
 const feedback = ref<{ tipo: "erro" | "sucesso"; mensagem: string } | null>(null)
 
 const emailValido = (valor: string) => /\S+@\S+\.\S+/.test(valor)
+const normalizarCpfCnpj = (valor: string) => valor.replace(/\D/g, "")
 
 const validar = () => {
+  nomeErro.value = ""
   emailErro.value = ""
+  cpfCnpjErro.value = ""
   senhaErro.value = ""
   confirmacaoErro.value = ""
   feedback.value = null
+
+  if (!nome.value.trim()) {
+    nomeErro.value = "Informe seu nome."
+  }
 
   if (!email.value.trim()) {
     emailErro.value = "Informe seu email."
   } else if (!emailValido(email.value)) {
     emailErro.value = "Email invalido."
+  }
+
+  const cpfCnpjFinal = normalizarCpfCnpj(cpfCnpj.value)
+  if (!cpfCnpjFinal) {
+    cpfCnpjErro.value = "Informe seu CPF ou CNPJ."
+  } else if (cpfCnpjFinal.length !== 11 && cpfCnpjFinal.length !== 14) {
+    cpfCnpjErro.value = "CPF ou CNPJ invalido."
   }
 
   if (!senha.value.trim()) {
@@ -54,16 +73,23 @@ const validar = () => {
     confirmacaoErro.value = "As senhas nao conferem."
   }
 
-  return !emailErro.value && !senhaErro.value && !confirmacaoErro.value
+  return !nomeErro.value && !emailErro.value && !cpfCnpjErro.value && !senhaErro.value && !confirmacaoErro.value
 }
 
 const onSubmit = async () => {
   if (!validar()) return
 
-  const { error, message } = await authStore.signUp(email.value.trim(), senha.value)
+  const cpfCnpjFinal = normalizarCpfCnpj(cpfCnpj.value)
+  const { error, message } = await authStore.signUp(
+    email.value.trim(),
+    senha.value,
+    nome.value.trim(),
+    cpfCnpjFinal,
+  )
 
   if (error) {
     feedback.value = { tipo: "erro", mensagem: error }
+    toast.error(error)
     return
   }
 
@@ -71,6 +97,7 @@ const onSubmit = async () => {
     tipo: "sucesso",
     mensagem: message ?? "Conta criada com sucesso.",
   }
+  toast.success(message ?? "Conta criada com sucesso.")
 
   if (message?.includes("autenticada")) {
     await router.push("/app")
@@ -89,6 +116,18 @@ const onSubmit = async () => {
         <CardContent>
           <form class="space-y-4" @submit.prevent="onSubmit">
             <div class="space-y-2">
+              <Label for="nome">Nome</Label>
+              <Input
+                id="nome"
+                v-model="nome"
+                type="text"
+                placeholder="Seu nome"
+                autocomplete="name"
+              />
+              <p v-if="nomeErro" class="text-xs text-destructive">{{ nomeErro }}</p>
+            </div>
+
+            <div class="space-y-2">
               <Label for="email">Email</Label>
               <Input
                 id="email"
@@ -98,6 +137,18 @@ const onSubmit = async () => {
                 autocomplete="email"
               />
               <p v-if="emailErro" class="text-xs text-destructive">{{ emailErro }}</p>
+            </div>
+
+            <div class="space-y-2">
+              <Label for="cpf-cnpj">CPF ou CNPJ</Label>
+              <Input
+                id="cpf-cnpj"
+                v-model="cpfCnpj"
+                type="text"
+                placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                autocomplete="off"
+              />
+              <p v-if="cpfCnpjErro" class="text-xs text-destructive">{{ cpfCnpjErro }}</p>
             </div>
 
             <div class="space-y-2">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue"
+import { computed, reactive, ref, watch } from "vue"
+import { useRoute, useRouter } from "vue-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query"
 import {
   ArrowLeftIcon,
@@ -33,6 +34,8 @@ import { listarClientes, type Cliente } from "@/repositories/clientes"
 
 type ArtePayload = {
   id_cliente: string | null
+  data_solicitacao: string
+  data_entrega: string | null
   titulo: string
   descricao: string | null
   valor_centavos: number
@@ -43,6 +46,8 @@ type ArtePayload = {
 
 const contaStore = useContaStore()
 const queryClient = useQueryClient()
+const route = useRoute()
+const router = useRouter()
 
 const termoBusca = ref("")
 const editandoId = ref<string | null>(null)
@@ -50,6 +55,8 @@ const modo = ref<"lista" | "form">("lista")
 
 const formulario = reactive({
   id_cliente: "",
+  data_solicitacao: "",
+  data_entrega: "",
   titulo: "",
   descricao: "",
   valor: "",
@@ -59,7 +66,9 @@ const formulario = reactive({
 })
 
 const erros = reactive({
+  data_solicitacao: "",
   titulo: "",
+  valor: "",
 })
 
 const statusOptions = [
@@ -71,17 +80,15 @@ const statusOptions = [
 ]
 
 const modeloCobrancaOptions = [
-  { value: "antes", label: "Antes" },
-  { value: "depois", label: "Depois" },
+  { value: "padrao", label: "Padrao" },
   { value: "plano", label: "Plano" },
   { value: "cortesia", label: "Cortesia" },
+  { value: "parceria", label: "Parceria" },
 ]
 
 const statusPagamentoOptions = [
   { value: "pendente", label: "Pendente" },
   { value: "paga", label: "Paga" },
-  { value: "cortesia", label: "Cortesia" },
-  { value: "plano", label: "Plano" },
 ]
 
 const idConta = computed(() => contaStore.contaAtual?.id ?? "")
@@ -286,10 +293,16 @@ const artesFiltradas = computed(() => {
     })
   }
   if (periodoInicio.value) {
-    lista = lista.filter((arte) => arte.criado_em >= periodoInicio.value)
+    lista = lista.filter((arte) => {
+      const dataBase = arte.data_solicitacao ?? arte.criado_em
+      return dataBase >= periodoInicio.value
+    })
   }
   if (periodoFim.value) {
-    lista = lista.filter((arte) => arte.criado_em <= periodoFim.value)
+    lista = lista.filter((arte) => {
+      const dataBase = arte.data_solicitacao ?? arte.criado_em
+      return dataBase <= periodoFim.value
+    })
   }
   if (modeloCobrancaFiltro.value) {
     lista = lista.filter(
@@ -320,6 +333,13 @@ const formatarValor = (valorCentavos: number) => {
     style: "currency",
     currency: "BRL",
   }).format(valorCentavos / 100)
+}
+
+const formatarDataExibicao = (data: string | null | undefined) => {
+  if (!data) return "Nao informado"
+  const [ano, mes, dia] = data.split("-")
+  if (!ano || !mes || !dia) return data
+  return `${dia}/${mes}/${ano}`
 }
 
 const parseValor = (valor: string) => {
@@ -377,6 +397,8 @@ const limparFormulario = () => {
   formulario.id_cliente = ""
   clienteBusca.value = ""
   clienteDropdownAberto.value = false
+  formulario.data_solicitacao = formatarDataInput(new Date())
+  formulario.data_entrega = ""
   formulario.titulo = ""
   formulario.descricao = ""
   formulario.valor = ""
@@ -384,7 +406,9 @@ const limparFormulario = () => {
   formulario.status = "pendente"
   formulario.prazo_entrega = calcularPrazoPadrao()
   editandoId.value = null
+  erros.data_solicitacao = ""
   erros.titulo = ""
+  erros.valor = ""
 }
 
 const abrirCadastro = () => {
@@ -393,13 +417,21 @@ const abrirCadastro = () => {
 }
 
 const validar = () => {
+  erros.data_solicitacao = ""
   erros.titulo = ""
+  erros.valor = ""
 
+  if (!formulario.data_solicitacao) {
+    erros.data_solicitacao = "Informe a data da solicitacao."
+  }
   if (!formulario.titulo.trim()) {
     erros.titulo = "Informe um titulo para a arte."
   }
+  if (!editandoId.value && !formulario.valor.trim()) {
+    erros.valor = "Informe o valor da arte."
+  }
 
-  return !erros.titulo
+  return !erros.data_solicitacao && !erros.titulo && !erros.valor
 }
 
 const salvarArte = async () => {
@@ -409,8 +441,17 @@ const salvarArte = async () => {
   }
   if (!validar()) return
 
+  if (formulario.status === "entregue" && !formulario.data_entrega) {
+    formulario.data_entrega = formatarDataInput(new Date())
+  }
+
+  const dataEntrega =
+    formulario.status === "entregue" ? formulario.data_entrega : null
+
   const payload: ArtePayload = {
     id_cliente: formulario.id_cliente || null,
+    data_solicitacao: formulario.data_solicitacao,
+    data_entrega: dataEntrega,
     titulo: formulario.titulo.trim(),
     descricao: formulario.descricao.trim() || null,
     valor_centavos: parseValor(formulario.valor),
@@ -437,7 +478,7 @@ const salvarArte = async () => {
         (lista = []) =>
           lista.map((arte) => (arte.id === data.id ? { ...arte, ...data } : arte)),
       )
-      toast.success("Arte atualizada com sucesso.")
+      toast.success("Arte salva com sucesso.")
       limparFormulario()
       modo.value = "lista"
       return
@@ -453,7 +494,16 @@ const salvarArte = async () => {
     )
 
     const financeiroCriado = await withAbortTimeout(
-      (signal) => garantirFinanceiroArte(data.id, {}, signal),
+      (signal) =>
+        garantirFinanceiroArte(
+          data.id,
+          {
+            status_pagamento: "pendente",
+            valor_centavos: payload.valor_centavos,
+            pago_em: null,
+          },
+          signal,
+        ),
       15000,
     )
 
@@ -471,7 +521,7 @@ const salvarArte = async () => {
       (lista = []) => [arteComFinanceiro, ...lista],
     )
     await queryClient.invalidateQueries({ queryKey: ["artes", idConta.value] })
-    toast.success("Arte cadastrada com sucesso.")
+    toast.success("Arte salva com sucesso.")
     limparFormulario()
     modo.value = "lista"
   } catch (error) {
@@ -489,6 +539,8 @@ const iniciarEdicao = (arte: ArteComFinanceiro) => {
     ? clientesPorId.value[arte.id_cliente]?.nome ?? ""
     : ""
   clienteDropdownAberto.value = false
+  formulario.data_solicitacao = arte.data_solicitacao ?? formatarDataInput(new Date())
+  formulario.data_entrega = arte.data_entrega ?? ""
   formulario.titulo = arte.titulo
   formulario.descricao = arte.descricao ?? ""
   formulario.valor = (arte.valor_centavos / 100).toFixed(2)
@@ -496,7 +548,9 @@ const iniciarEdicao = (arte: ArteComFinanceiro) => {
   formulario.status = arte.status
   formulario.prazo_entrega = arte.prazo_entrega ?? ""
   editandoId.value = arte.id
+  erros.data_solicitacao = ""
   erros.titulo = ""
+  erros.valor = ""
   modo.value = "form"
 }
 
@@ -596,6 +650,33 @@ const excluirArte = async (arte: ArteComFinanceiro) => {
     limparFormulario()
   }
 }
+
+watch(
+  () => formulario.status,
+  (status) => {
+    if (status === "entregue") {
+      if (!formulario.data_entrega) {
+        formulario.data_entrega = formatarDataInput(new Date())
+      }
+      return
+    }
+    formulario.data_entrega = ""
+  },
+)
+
+watch(
+  () => route.query.acao,
+  (acao) => {
+    if (acao !== "novo") return
+    if (modo.value !== "form") {
+      abrirCadastro()
+    }
+    const query = { ...route.query } as Record<string, string | string[] | undefined>
+    delete query.acao
+    router.replace({ query })
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -625,6 +706,19 @@ const excluirArte = async (arte: ArteComFinanceiro) => {
         </CardHeader>
         <CardContent>
           <form class="space-y-4" @submit.prevent="salvarArte">
+            <div class="space-y-2 w-fit">
+              <Label for="data-solicitacao">Data da solicitacao</Label>
+              <Input
+                id="data-solicitacao"
+                v-model="formulario.data_solicitacao"
+                type="date"
+                class="w-[160px]"
+              />
+              <p v-if="erros.data_solicitacao" class="text-xs text-destructive">
+                {{ erros.data_solicitacao }}
+              </p>
+            </div>
+
             <div class="space-y-2">
               <Label for="titulo">Titulo</Label>
               <Input id="titulo" v-model="formulario.titulo" placeholder="Ex: Arte para Instagram" />
@@ -701,6 +795,7 @@ const excluirArte = async (arte: ArteComFinanceiro) => {
                 min="0"
                 placeholder="0,00"
               />
+              <p v-if="erros.valor" class="text-xs text-destructive">{{ erros.valor }}</p>
             </div>
 
             <div class="space-y-2">
@@ -724,7 +819,7 @@ const excluirArte = async (arte: ArteComFinanceiro) => {
               />
             </div>
 
-            <div class="grid gap-4 sm:grid-cols-2">
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div class="space-y-2">
                 <Label for="status">Status</Label>
                 <select
@@ -738,9 +833,24 @@ const excluirArte = async (arte: ArteComFinanceiro) => {
                 </select>
               </div>
 
-              <div class="space-y-2">
+              <div class="space-y-2 w-fit">
                 <Label for="prazo">Prazo de entrega</Label>
-                <Input id="prazo" v-model="formulario.prazo_entrega" type="date" />
+                <Input
+                  id="prazo"
+                  v-model="formulario.prazo_entrega"
+                  type="date"
+                  class="w-[160px]"
+                />
+              </div>
+
+              <div v-if="formulario.status === 'entregue'" class="space-y-2 w-fit">
+                <Label for="data-entrega">Data de entrega</Label>
+                <Input
+                  id="data-entrega"
+                  v-model="formulario.data_entrega"
+                  type="date"
+                  class="w-[160px]"
+                />
               </div>
             </div>
 
@@ -882,13 +992,21 @@ const excluirArte = async (arte: ArteComFinanceiro) => {
             </div>
 
             <div class="space-y-2">
-              <Label for="filtro-inicio">Periodo inicio</Label>
-              <Input id="filtro-inicio" v-model="periodoInicio" type="date" />
+              <Label for="filtro-inicio">Solicitacao inicio</Label>
+              <Input
+                id="filtro-inicio"
+                v-model="periodoInicio"
+                type="date"
+              />
             </div>
 
             <div class="space-y-2">
-              <Label for="filtro-fim">Periodo fim</Label>
-              <Input id="filtro-fim" v-model="periodoFim" type="date" />
+              <Label for="filtro-fim">Solicitacao fim</Label>
+              <Input
+                id="filtro-fim"
+                v-model="periodoFim"
+                type="date"
+              />
             </div>
           </div>
 
@@ -957,11 +1075,14 @@ const excluirArte = async (arte: ArteComFinanceiro) => {
                     Valor: {{ formatarValor(arte.valor_centavos) }}
                   </p>
                   <p class="text-xs text-muted-foreground">
-                    Cobranca: {{ obterModeloLabel(arte.financeiro?.modelo_cobranca) }} • Pagamento:
+                    Cobranca: {{ obterModeloLabel(arte.financeiro?.modelo_cobranca) }} - Pagamento:
                     {{ obterStatusPagamentoLabel(arte.financeiro?.status_pagamento) }}
                   </p>
                   <p class="text-xs text-muted-foreground">
                     Prazo: {{ arte.prazo_entrega || "Nao informado" }}
+                  </p>
+                  <p class="text-xs text-muted-foreground">
+                    Solicitacao: {{ formatarDataExibicao(arte.data_solicitacao) }}
                   </p>
                   <a
                     v-if="arte.link_download"
@@ -994,3 +1115,4 @@ const excluirArte = async (arte: ArteComFinanceiro) => {
     </div>
   </section>
 </template>
+

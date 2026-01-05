@@ -41,6 +41,7 @@ const queryClient = useQueryClient()
 
 const idConta = computed(() => contaStore.contaAtual?.id ?? "")
 const idArte = computed(() => String(route.params.id ?? ""))
+const origemFinanceiro = computed(() => route.query.origem === "financeiro")
 
 const statusOptions = [
   { value: "pendente", label: "PENDENTE" },
@@ -51,21 +52,21 @@ const statusOptions = [
 ]
 
 const modeloCobrancaOptions = [
-  { value: "antes", label: "Antes" },
-  { value: "depois", label: "Depois" },
+  { value: "padrao", label: "Padrao" },
   { value: "plano", label: "Plano" },
   { value: "cortesia", label: "Cortesia" },
+  { value: "parceria", label: "Parceria" },
 ]
 
 const statusPagamentoOptions = [
   { value: "pendente", label: "Pendente" },
   { value: "paga", label: "Paga" },
-  { value: "cortesia", label: "Cortesia" },
-  { value: "plano", label: "Plano" },
 ]
 
 const arteForm = reactive({
   id_cliente: "",
+  data_solicitacao: "",
+  data_entrega: "",
   titulo: "",
   descricao: "",
   valor: "",
@@ -75,10 +76,9 @@ const arteForm = reactive({
 })
 
 const financeiroForm = reactive({
-  modelo_cobranca: "antes" as ModeloCobranca,
+  modelo_cobranca: "padrao" as ModeloCobranca,
   status_pagamento: "pendente" as StatusPagamento,
   valor: "",
-  cobrado_em: "",
   pago_em: "",
   observacoes: "",
 })
@@ -99,6 +99,13 @@ const parseValor = (valor: string) => {
     return 0
   }
   return Math.round(numero * 100)
+}
+
+const formatarDataInput = (data: Date) => {
+  const ano = data.getFullYear()
+  const mes = String(data.getMonth() + 1).padStart(2, "0")
+  const dia = String(data.getDate()).padStart(2, "0")
+  return `${ano}-${mes}-${dia}`
 }
 
 const normalizarTexto = (valor: string) => {
@@ -198,6 +205,8 @@ const atualizarArteMutation = useMutation({
   }: {
     payload: {
       id_cliente?: string | null
+      data_solicitacao: string
+      data_entrega?: string | null
       titulo: string
       descricao?: string | null
       valor_centavos?: number
@@ -227,7 +236,6 @@ const atualizarFinanceiroMutation = useMutation({
       modelo_cobranca?: ModeloCobranca
       status_pagamento?: StatusPagamento
       valor_centavos?: number
-      cobrado_em?: string | null
       pago_em?: string | null
       observacoes?: string | null
     }
@@ -262,6 +270,8 @@ watch(
   (arte) => {
     if (!arte) return
     arteForm.id_cliente = arte.id_cliente ?? ""
+    arteForm.data_solicitacao = arte.data_solicitacao ?? formatarDataInput(new Date())
+    arteForm.data_entrega = arte.data_entrega ?? ""
     arteForm.titulo = arte.titulo
     arteForm.descricao = arte.descricao ?? ""
     arteForm.valor = (arte.valor_centavos / 100).toFixed(2)
@@ -279,7 +289,6 @@ watch(
     financeiroForm.modelo_cobranca = financeiro.modelo_cobranca
     financeiroForm.status_pagamento = financeiro.status_pagamento
     financeiroForm.valor = (financeiro.valor_centavos / 100).toFixed(2)
-    financeiroForm.cobrado_em = financeiro.cobrado_em ?? ""
     financeiroForm.pago_em = financeiro.pago_em ?? ""
     financeiroForm.observacoes = financeiro.observacoes ?? ""
   },
@@ -290,23 +299,50 @@ watch(
   () => financeiroForm.modelo_cobranca,
   (modelo) => {
     if (modelo === "cortesia") {
-      financeiroForm.status_pagamento = "cortesia"
+      financeiroForm.status_pagamento = "paga"
       financeiroForm.valor = "0"
     }
+  },
+)
+
+watch(
+  () => arteForm.status,
+  (status) => {
+    if (status === "entregue") {
+      if (!arteForm.data_entrega) {
+        arteForm.data_entrega = formatarDataInput(new Date())
+      }
+      return
+    }
+    arteForm.data_entrega = ""
   },
 )
 
 const salvarArte = async () => {
   if (!idConta.value || !idArte.value) return
 
+  if (!arteForm.data_solicitacao) {
+    toast.error("Informe a data da solicitacao.")
+    return
+  }
+
   if (!arteForm.titulo.trim()) {
     toast.error("Informe um titulo para a arte.")
     return
   }
 
+  if (arteForm.status === "entregue" && !arteForm.data_entrega) {
+    arteForm.data_entrega = formatarDataInput(new Date())
+  }
+
+  const dataEntrega =
+    arteForm.status === "entregue" ? arteForm.data_entrega : null
+
   try {
     const payload = {
       id_cliente: arteForm.id_cliente || null,
+      data_solicitacao: arteForm.data_solicitacao,
+      data_entrega: dataEntrega,
       titulo: arteForm.titulo.trim(),
       descricao: normalizarTexto(arteForm.descricao),
       valor_centavos: parseValor(arteForm.valor),
@@ -322,7 +358,7 @@ const salvarArte = async () => {
 
     queryClient.setQueriesData({ queryKey: ["arte", idConta.value, idArte.value] }, data)
     await queryClient.invalidateQueries({ queryKey: ["artes", idConta.value] })
-    toast.success("Arte atualizada com sucesso.")
+    toast.success("Arte salva com sucesso.")
   } catch (error) {
     const mensagem =
       error instanceof Error && /abort|timeout/i.test(error.message)
@@ -339,13 +375,12 @@ const salvarFinanceiro = async () => {
     modelo_cobranca: financeiroForm.modelo_cobranca,
     status_pagamento: financeiroForm.status_pagamento,
     valor_centavos: parseValor(financeiroForm.valor),
-    cobrado_em: financeiroForm.cobrado_em || null,
     pago_em: financeiroForm.pago_em || null,
     observacoes: normalizarTexto(financeiroForm.observacoes),
   }
 
   if (payload.modelo_cobranca === "cortesia") {
-    payload.status_pagamento = "cortesia"
+    payload.status_pagamento = "paga"
     payload.valor_centavos = 0
   }
 
@@ -369,7 +404,7 @@ const salvarFinanceiro = async () => {
     await queryClient.invalidateQueries({ queryKey: ["financeiro", idArte.value] })
     await queryClient.invalidateQueries({ queryKey: ["financeiro-conta", idConta.value] })
     await queryClient.invalidateQueries({ queryKey: ["artes", idConta.value] })
-    toast.success("Financeiro atualizado com sucesso.")
+    toast.success("Pagamento salvo com sucesso.")
   } catch (error) {
     const mensagem =
       error instanceof Error && /abort|timeout/i.test(error.message)
@@ -415,10 +450,9 @@ const removerFinanceiro = async () => {
     await queryClient.invalidateQueries({ queryKey: ["financeiro", idArte.value] })
     await queryClient.invalidateQueries({ queryKey: ["financeiro-conta", idConta.value] })
     await queryClient.invalidateQueries({ queryKey: ["artes", idConta.value] })
-    financeiroForm.modelo_cobranca = "antes"
+    financeiroForm.modelo_cobranca = "padrao"
     financeiroForm.status_pagamento = "pendente"
     financeiroForm.valor = ""
-    financeiroForm.cobrado_em = ""
     financeiroForm.pago_em = ""
     financeiroForm.observacoes = ""
     toast.success("Financeiro removido.")
@@ -503,10 +537,22 @@ const renomearArquivo = async (arquivo: ArquivoArte) => {
         <h1 class="text-2xl font-semibold">Detalhe da arte</h1>
         <p class="text-sm text-muted-foreground">Ajuste dados da arte, financeiro e arquivos.</p>
       </div>
-      <Button type="button" variant="outline" size="sm" @click="router.push('/app/artes')">
-        <ArrowLeftIcon class="size-4" />
-        <span>Voltar para artes</span>
-      </Button>
+      <div class="flex flex-wrap gap-2">
+        <Button
+          v-if="origemFinanceiro"
+          type="button"
+          variant="outline"
+          size="sm"
+          @click="router.push('/app/financeiro')"
+        >
+          <ArrowLeftIcon class="size-4" />
+          <span>Voltar para financeiro</span>
+        </Button>
+        <Button type="button" variant="outline" size="sm" @click="router.push('/app/artes')">
+          <ArrowLeftIcon class="size-4" />
+          <span>Voltar para artes</span>
+        </Button>
+      </div>
     </header>
 
     <div v-if="carregandoArte" class="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">
@@ -527,6 +573,16 @@ const renomearArquivo = async (arquivo: ArquivoArte) => {
           <CardDescription>Atualize titulo, status e prazo.</CardDescription>
         </CardHeader>
         <CardContent class="space-y-4">
+          <div class="space-y-2 w-fit">
+            <Label for="data-solicitacao">Data da solicitacao</Label>
+            <Input
+              id="data-solicitacao"
+              v-model="arteForm.data_solicitacao"
+              type="date"
+              class="w-[160px]"
+            />
+          </div>
+
           <div class="space-y-2">
             <Label for="titulo">Titulo</Label>
             <Input id="titulo" v-model="arteForm.titulo" placeholder="Ex: Arte para Instagram" />
@@ -567,7 +623,7 @@ const renomearArquivo = async (arquivo: ArquivoArte) => {
             <Input id="link" v-model="arteForm.link_download" type="url" placeholder="https://..." />
           </div>
 
-          <div class="grid gap-4 sm:grid-cols-2">
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div class="space-y-2">
               <Label for="status">Status</Label>
               <select
@@ -580,9 +636,24 @@ const renomearArquivo = async (arquivo: ArquivoArte) => {
                 </option>
               </select>
             </div>
-            <div class="space-y-2">
+            <div class="space-y-2 w-fit">
               <Label for="prazo">Prazo de entrega</Label>
-              <Input id="prazo" v-model="arteForm.prazo_entrega" type="date" />
+              <Input
+                id="prazo"
+                v-model="arteForm.prazo_entrega"
+                type="date"
+                class="w-[160px]"
+              />
+            </div>
+
+            <div v-if="arteForm.status === 'entregue'" class="space-y-2 w-fit">
+              <Label for="data-entrega">Data de entrega</Label>
+              <Input
+                id="data-entrega"
+                v-model="arteForm.data_entrega"
+                type="date"
+                class="w-[160px]"
+              />
             </div>
           </div>
 
@@ -659,15 +730,14 @@ const renomearArquivo = async (arquivo: ArquivoArte) => {
               />
             </div>
 
-            <div class="grid gap-4 sm:grid-cols-2">
-              <div class="space-y-2">
-                <Label for="cobrado">Cobrado em</Label>
-                <Input id="cobrado" v-model="financeiroForm.cobrado_em" type="date" />
-              </div>
-              <div class="space-y-2">
-                <Label for="pago">Pago em</Label>
-                <Input id="pago" v-model="financeiroForm.pago_em" type="date" />
-              </div>
+            <div class="space-y-2 w-fit">
+              <Label for="pago">Pago em</Label>
+              <Input
+                id="pago"
+                v-model="financeiroForm.pago_em"
+                type="date"
+                class="w-[160px]"
+              />
             </div>
 
             <div class="space-y-2">

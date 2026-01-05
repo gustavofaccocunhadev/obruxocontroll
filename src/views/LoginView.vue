@@ -28,6 +28,12 @@ const feedback = ref<{ tipo: "erro" | "sucesso"; mensagem: string } | null>(null
 
 const emailValido = (valor: string) => /\S+@\S+\.\S+/.test(valor)
 
+const normalizarRedirect = (valor: unknown) => {
+  if (typeof valor !== "string") return "/app"
+  if (!valor.startsWith("/") || valor.startsWith("//")) return "/app"
+  return valor
+}
+
 const validar = () => {
   emailErro.value = ""
   senhaErro.value = ""
@@ -57,14 +63,21 @@ const onSubmit = async () => {
   }
 
   feedback.value = { tipo: "sucesso", mensagem: "Login realizado com sucesso." }
-  const destino = typeof route.query.redirect === "string" ? route.query.redirect : "/app"
+  const destino = normalizarRedirect(route.query.redirect)
   await router.push(destino)
 }
 </script>
 
 <template>
   <main class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)] px-6 py-10">
-    <div class="mx-auto flex min-h-screen max-w-lg items-center">
+    <div class="mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-6">
+      <div class="flex justify-center">
+        <img
+          src="/android-chrome-192x192.png"
+          alt="Logo do BruxoControll"
+          class="h-48 w-48"
+        />
+      </div>
       <Card class="w-full">
         <CardHeader>
           <CardTitle>Entrar</CardTitle>

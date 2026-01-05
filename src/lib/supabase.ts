@@ -41,6 +41,12 @@ const fetchWithTimeout: typeof fetch = async (input, init = {}) => {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    flowType: "pkce",
+  },
   global: {
     fetch: fetchWithTimeout,
   },

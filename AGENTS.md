@@ -58,7 +58,8 @@ with check (public.is_admin());
 - Formatar BRL apenas na interface.
 - Relação 1:1 no PMV (produto minimo viavel): cada `arte` possui no máximo um registro em `financeiro_artes`.
 - Regras de consistência (validar na interface e também via constraints quando fizer sentido):
-  - `modelo_cobranca='cortesia'` implica `status_pagamento='cortesia'` e `valor_centavos=0`.
+  - `status_pagamento`: usar apenas `pendente` ou `paga`.
+  - `modelo_cobranca='cortesia'` implica `status_pagamento='paga'` e `valor_centavos=0`.
 
 ## 5) Armazenamento (arquivos de artes)
 - Compartimento: `art-files` (privado).

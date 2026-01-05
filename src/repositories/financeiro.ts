@@ -1,15 +1,14 @@
 import { supabase } from "@/lib/supabase"
 
-export type ModeloCobranca = "antes" | "depois" | "plano" | "cortesia"
+export type ModeloCobranca = "padrao" | "plano" | "cortesia" | "parceria"
 
-export type StatusPagamento = "pendente" | "paga" | "cortesia" | "plano"
+export type StatusPagamento = "pendente" | "paga"
 
 export type FinanceiroArte = {
   id_arte: string
   modelo_cobranca: ModeloCobranca
   status_pagamento: StatusPagamento
   valor_centavos: number
-  cobrado_em: string | null
   pago_em: string | null
   observacoes: string | null
   criado_em: string
@@ -34,13 +33,12 @@ type FinanceiroArteInput = {
   modelo_cobranca?: ModeloCobranca
   status_pagamento?: StatusPagamento
   valor_centavos?: number
-  cobrado_em?: string | null
   pago_em?: string | null
   observacoes?: string | null
 }
 
 const camposFinanceiro =
-  "id_arte,modelo_cobranca,status_pagamento,valor_centavos,cobrado_em,pago_em,observacoes,criado_em,atualizado_em"
+  "id_arte,modelo_cobranca,status_pagamento,valor_centavos,pago_em,observacoes,criado_em,atualizado_em"
 
 const camposArte = "id,titulo,id_cliente,status,criado_em"
 const camposCliente = "id,nome"
@@ -69,10 +67,9 @@ export const criarFinanceiroArte = async (
     .from("financeiro_artes")
     .insert({
       id_arte: idArte,
-      modelo_cobranca: payload.modelo_cobranca ?? "antes",
+      modelo_cobranca: payload.modelo_cobranca ?? "padrao",
       status_pagamento: payload.status_pagamento ?? "pendente",
       valor_centavos: payload.valor_centavos ?? 0,
-      cobrado_em: payload.cobrado_em ?? null,
       pago_em: payload.pago_em ?? null,
       observacoes: payload.observacoes ?? null,
     })
@@ -97,10 +94,9 @@ export const garantirFinanceiroArte = async (
     .upsert(
       {
         id_arte: idArte,
-        modelo_cobranca: payload.modelo_cobranca ?? "antes",
+        modelo_cobranca: payload.modelo_cobranca ?? "padrao",
         status_pagamento: payload.status_pagamento ?? "pendente",
         valor_centavos: payload.valor_centavos ?? 0,
-        cobrado_em: payload.cobrado_em ?? null,
         pago_em: payload.pago_em ?? null,
         observacoes: payload.observacoes ?? null,
       },
@@ -137,10 +133,6 @@ export const atualizarFinanceiroArte = async (
 
   if (payload.valor_centavos !== undefined) {
     updates.valor_centavos = payload.valor_centavos
-  }
-
-  if (payload.cobrado_em !== undefined) {
-    updates.cobrado_em = payload.cobrado_em
   }
 
   if (payload.pago_em !== undefined) {

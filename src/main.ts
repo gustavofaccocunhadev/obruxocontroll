@@ -1,4 +1,5 @@
 import './style.css'
+import './pwa'
 
 import { createApp } from 'vue'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'

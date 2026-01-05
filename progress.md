@@ -37,12 +37,15 @@
 - [x] Criar p�gina clientes (temporario)
 - [x] Criar p�gina Artes (temporario)
 - [x] Criar p�gina Financeiro (temporario)
+- [x] Criar pagina Perfil do cliente
+- [x] Exigir CPF ou CNPJ no cadastro e perfil
 
 ## 5) Repositorios (Dados)
 - [x] Implementar repositorios/clientes.ts (cadastro/listagem/edicao/exclusao)
 - [x] Implementar repositorios/artes.ts (cadastro/listagem/edicao/exclusao + filtros)
 - [x] Implementar repositorios/financeiro.ts (ler/atualizar 1:1 por arte)
 - [x] Implementar repositorios/arquivos.ts (Envio/listagem/remocao/gerar endereco)
+- [x] Implementar repositorios/perfis.ts (dados do perfil e avatar)
 
 ## 6) Funcionalidades � clientes
 - [x] Listagem com busca

@@ -21,6 +21,10 @@
 - Autenticacao do Supabase (email/senha).
 - Primeiro acesso cria `conta` e `conta_membros` com `papel='dono'`.
 
+## Perfil do cliente
+- Dados em `perfis` com `foto_path` e `cpf_cnpj`.
+- Avatar salvo no compartimento privado `perfil-files` com caminho `{id_usuario}/avatar-...`.
+
 ## Financeiro
 - Valores em centavos (`valor_centavos`).
 - Regra: `modelo_cobranca='cortesia'` implica `status_pagamento='cortesia'` e `valor_centavos=0`.

@@ -65,5 +65,5 @@ async function handleRetryPulse() {
     </div>
   </main>
   <RouterView v-else />
-  <Toaster />
+  <Toaster position="top-center" :duration="3500" />
 </template>

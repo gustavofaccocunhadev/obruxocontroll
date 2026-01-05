@@ -15,7 +15,7 @@ const onSignOut = async () => {
   <main class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)]">
     <div class="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-10">
       <header class="flex items-center justify-between">
-        <div class="text-base font-semibold tracking-wide">BruxoControl</div>
+        <div class="text-base font-semibold tracking-wide">BruxoControll</div>
         <div class="flex items-center gap-2">
           <template v-if="authStore.user">
             <Button variant="outline" size="sm" @click="onSignOut">

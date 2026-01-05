@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { toast } from "vue-sonner"
 import { useAuthStore } from "@/stores/auth"
 
 const authStore = useAuthStore()
@@ -43,6 +44,7 @@ const onSubmit = async () => {
 
   if (error) {
     feedback.value = { tipo: "erro", mensagem: error }
+    toast.error(error)
     return
   }
 
@@ -50,6 +52,7 @@ const onSubmit = async () => {
     tipo: "sucesso",
     mensagem: "Email de recuperacao enviado. Verifique sua caixa de entrada.",
   }
+  toast.success("Email de recuperacao enviado. Verifique sua caixa de entrada.")
 }
 </script>
 

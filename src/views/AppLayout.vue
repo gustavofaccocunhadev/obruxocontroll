@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue"
 import { useRoute, RouterLink, RouterView } from "vue-router"
+import { useQuery } from "@tanstack/vue-query"
 import {
   CreditCardIcon,
   LayoutDashboardIcon,
@@ -13,14 +14,56 @@ import {
 } from "lucide-vue-next"
 import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/stores/auth"
-import { useContaStore } from "@/stores/conta"
+import { gerarUrlAvatarPerfil, obterPerfil } from "@/repositories/perfis"
 
 const route = useRoute()
 const authStore = useAuthStore()
-const contaStore = useContaStore()
 const menuAberto = ref(false)
 
-const contaNome = computed(() => contaStore.contaAtual?.nome ?? "Conta")
+const idUsuario = computed(() => authStore.user?.id ?? "")
+
+const perfilQuery = useQuery({
+  queryKey: computed(() => ["perfil", idUsuario.value]),
+  queryFn: async ({ signal }) => {
+    if (!idUsuario.value) return null
+    const { data, error } = await obterPerfil(idUsuario.value, signal)
+    if (error) {
+      throw new Error(error)
+    }
+    return data
+  },
+  enabled: computed(() => Boolean(idUsuario.value)),
+})
+
+const perfil = computed(() => perfilQuery.data.value)
+const nomeUsuario = computed(() => {
+  return (
+    perfil.value?.nome ||
+    (authStore.user?.user_metadata?.nome as string | undefined) ||
+    "Usuario"
+  )
+})
+const emailUsuario = computed(() => authStore.user?.email ?? "")
+const avatarPath = computed(() => perfil.value?.foto_path ?? "")
+
+const avatarQuery = useQuery({
+  queryKey: computed(() => ["perfil-avatar", avatarPath.value]),
+  queryFn: async () => {
+    if (!avatarPath.value) return null
+    const { data, error } = await gerarUrlAvatarPerfil(avatarPath.value)
+    if (error) {
+      throw new Error(error)
+    }
+    return data
+  },
+  enabled: computed(() => Boolean(avatarPath.value)),
+})
+
+const avatarUrl = computed(() => avatarQuery.data.value ?? "")
+const iniciaisUsuario = computed(() => {
+  const letra = nomeUsuario.value.trim().charAt(0) || "?"
+  return letra.toUpperCase()
+})
 
 const itens = [
   { label: "Dashboard", to: "/app", icon: LayoutDashboardIcon },
@@ -30,7 +73,12 @@ const itens = [
   { label: "Financeiro", to: "/app/financeiro", icon: CreditCardIcon },
 ]
 
-const isAtivo = (path: string) => route.path === path || route.path.startsWith(`${path}/`)
+const isAtivo = (path: string) => {
+  if (path === "/app") {
+    return route.path === "/app"
+  }
+  return route.path === path || route.path.startsWith(`${path}/`)
+}
 
 const sair = async () => {
   await authStore.signOut()
@@ -41,13 +89,15 @@ const sair = async () => {
   <div class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.06),_transparent_60%)]">
     <div class="flex min-h-screen">
       <aside
-        class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r bg-card/95 shadow-sm transition-transform duration-200 md:static md:translate-x-0"
+        class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-primary/40 bg-gradient-to-b from-primary via-primary to-primary/90 text-primary-foreground shadow-sm transition-transform duration-200 md:static md:translate-x-0"
         :class="[menuAberto ? 'translate-x-0' : '-translate-x-full']"
       >
-        <div class="flex items-center justify-between border-b px-4 py-4 md:justify-center">
-          <span class="text-sm font-semibold tracking-wide">BruxoControl</span>
+        <div class="flex items-center justify-between border-b border-primary/40 px-4 py-4 md:justify-center">
+          <span class="text-sm font-semibold tracking-wide text-primary-foreground">
+            BruxoControll
+          </span>
           <Button
-            class="gap-2 md:hidden"
+            class="gap-2 text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground md:hidden"
             size="sm"
             variant="ghost"
             @click="menuAberto = false"
@@ -61,11 +111,11 @@ const sair = async () => {
             v-for="item in itens"
             :key="item.to"
             :to="item.to"
-            class="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition"
+            class="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors"
             :class="[
               isAtivo(item.to)
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                ? 'bg-primary-foreground/15 text-primary-foreground shadow-sm'
+                : 'text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground',
             ]"
             @click="menuAberto = false"
           >
@@ -94,10 +144,26 @@ const sair = async () => {
                 <MenuIcon class="size-4" />
                 Menu
               </Button>
-              <div>
-                <p class="text-xs uppercase tracking-wide text-muted-foreground">Conta atual</p>
-                <p class="text-sm font-semibold">{{ contaNome }}</p>
-              </div>
+              <RouterLink to="/app/perfil" class="group flex items-center gap-3">
+                <div
+                  class="flex size-10 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-muted/60 text-sm font-semibold text-foreground"
+                >
+                  <img
+                    v-if="avatarUrl"
+                    :src="avatarUrl"
+                    alt="Avatar do cliente"
+                    class="h-full w-full object-cover"
+                  />
+                  <span v-else>{{ iniciaisUsuario }}</span>
+                </div>
+                <div>
+                  <p class="text-xs uppercase tracking-wide text-muted-foreground">Cliente</p>
+                  <p class="text-sm font-semibold">{{ nomeUsuario }}</p>
+                  <p class="text-xs text-muted-foreground">
+                    {{ emailUsuario || "Email nao informado" }}
+                  </p>
+                </div>
+              </RouterLink>
             </div>
             <Button size="sm" variant="outline" class="gap-2" @click="sair">
               <LogOutIcon class="size-4" />

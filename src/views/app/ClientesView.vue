@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue"
+import { useRoute, useRouter } from "vue-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query"
 import {
   Loader2Icon,
@@ -57,6 +58,8 @@ type ClienteFormValues = {
 
 const contaStore = useContaStore()
 const queryClient = useQueryClient()
+const route = useRoute()
+const router = useRouter()
 
 const termoBusca = ref("")
 const editandoId = ref<string | null>(null)
@@ -388,6 +391,20 @@ watch(categorias, (lista) => {
     }
   }
 })
+
+watch(
+  () => route.query.acao,
+  (acao) => {
+    if (acao !== "novo") return
+    if (!dialogAberto.value) {
+      abrirCadastro()
+    }
+    const query = { ...route.query } as Record<string, string | string[] | undefined>
+    delete query.acao
+    router.replace({ query })
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

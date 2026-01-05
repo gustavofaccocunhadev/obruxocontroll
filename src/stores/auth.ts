@@ -136,10 +136,19 @@ export const useAuthStore = defineStore("auth", {
         this.loading = false
       }
     },
-    async signUp(email: string, password: string) {
+    async signUp(email: string, password: string, nome: string, cpfCnpj: string) {
       this.loading = true
       try {
-        const { data, error } = await supabase.auth.signUp({ email, password })
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              nome,
+              cpf_cnpj: cpfCnpj,
+            },
+          },
+        })
         if (error) {
           return { error: error.message, message: null }
         }
